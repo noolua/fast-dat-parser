@@ -15,6 +15,9 @@
 #include "statistics.hpp"
 // #include "leveldb.hpp"
 
+template <typename Block>
+constexpr decltype(dumpUnspents<Block>::BLANK_TXIN) dumpUnspents<Block>::BLANK_TXIN;
+
 using backing_vector_t = std::vector<uint8_t>;
 using block_t = decltype(Block(ptr_range(backing_vector_t()), ptr_range(backing_vector_t())));
 using thread_function_t = std::function<void(void)>;
@@ -42,7 +45,7 @@ int main (int argc, char** argv) {
 			else if (transformIndex == 2) delegate.reset(new dumpStatistics<block_t>());
 			else if (transformIndex == 3) delegate.reset(new dumpOutputValuesOverHeight<block_t>());
 			else if (transformIndex == 4) delegate.reset(new dumpUnspents<block_t>());
-			else if (transformIndex == 5) delegate.reset(new dumpASM<block_t>());
+			// else if (transformIndex == 5) delegate.reset(new dumpASM<block_t>());
 
 			// indexd
 // 			else if (transformIndex == 4) delegate.reset(new dumpLeveldb<block_t>());

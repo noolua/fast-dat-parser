@@ -1,11 +1,16 @@
 CXX=g++
-CFLAGS=-pedantic -std=c++1z -W -Wall -Wcast-qual -Wconversion -Wextra -Wwrite-strings
+CFLAGS=-pedantic -std=c++1z -W -Wall -Wno-unused-function -Wcast-qual -Wextra -Wwrite-strings
 #OFLAGS=-O3 -ggdb3
 OFLAGS=-O3
 LFLAGS=-lcrypto
 IFLAGS=-Iinclude
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	LFLAGS+=-L/usr/local/Cellar/openssl/1.0.2n/lib
+	IFLAGS+=-I/usr/local/Cellar/openssl/1.0.2n/include
+endif
 
-SOURCES=$(shell find src/ -name '*.c' -o -name '*.cpp')
+SOURCES=$(shell find src -name '*.c' -o -name '*.cpp')
 OBJECTS=$(addsuffix .o, $(basename $(SOURCES)))
 DEPENDENCIES=$(OBJECTS:.o=.d)
 

@@ -3,9 +3,15 @@
 #include <algorithm>
 #include "ranger.hpp"
 
-#include "endian.h"
-#if __BYTE_ORDER != __LITTLE_ENDIAN
-#error "big endian architecture not supported"
+#ifdef __linux__
+	#include "endian.h"
+	#if __BYTE_ORDER != __LITTLE_ENDIAN
+	#error "big endian architecture not supported"
+	#endif
+#else
+	#ifdef __APPLE__
+	#pragma message("only support x86/amd64 darwin system")
+	#endif
 #endif
 
 namespace serial {

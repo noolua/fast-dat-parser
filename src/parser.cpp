@@ -14,9 +14,10 @@
 
 #include "statistics.hpp"
 // #include "leveldb.hpp"
-
+#ifndef __cpp_if_constexpr
 template <typename Block>
 constexpr decltype(dumpUnspents<Block>::BLANK_TXIN) dumpUnspents<Block>::BLANK_TXIN;
+#endif
 
 using backing_vector_t = std::vector<uint8_t>;
 using block_t = decltype(Block(ptr_range(backing_vector_t()), ptr_range(backing_vector_t())));

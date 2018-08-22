@@ -24,7 +24,7 @@ using thread_function_t = std::function<void(void)>;
 using transform_function_t = std::function<void(block_t)>;
 
 int main (int argc, char** argv) {
-	size_t memoryAlloc = 200 * 1024 * 1024;
+	size_t memoryAlloc = 200;
 	size_t nThreads = 1;
 
 	std::unique_ptr<TransformBase<block_t>> delegate;
@@ -53,7 +53,7 @@ int main (int argc, char** argv) {
 			continue;
 		}
 		if (sscanf(arg, "-j%lu", &nThreads) == 1) continue;
-		if (sscanf(arg, "-m%lu", &memoryAlloc) == 1) continue;
+		if (sscanf(arg, "-M%lu", &memoryAlloc) == 1) continue;
 
 		if (delegate && delegate->initialize(arg)) continue;
 		assert(false);
@@ -63,6 +63,7 @@ int main (int argc, char** argv) {
 	time(&start);
 
 	// pre-allocate buffers
+	memoryAlloc *= (1024*1024);
 	const auto halfMemoryAlloc = memoryAlloc / 2;
 	backing_vector_t iobuffer(halfMemoryAlloc);
 	backing_vector_t parsebuffer(halfMemoryAlloc);

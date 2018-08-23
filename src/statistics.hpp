@@ -29,6 +29,80 @@ struct dumpOutputValuesOverHeight : public TransformBase<Block> {
 	}
 };
 
+// HEIGHT | VALUE > stdout
+template <typename Block>
+struct dumpTxOutputsInfo : public TransformBase<Block> {
+	std::atomic_ulong outputs;
+	std::atomic_ulong pk_count;
+	std::atomic_ulong hash_count;
+	std::atomic_ulong pk_zip_count;
+	std::atomic_ulong new_hash_count;
+	std::atomic_ulong unk_count;
+	dumpTxOutputsInfo() {
+		this->outputs = 0;
+		this->pk_count = 0;
+		this->hash_count = 0;
+		this->pk_zip_count = 0;
+		this->new_hash_count = 0;
+		this->unk_count = 0;
+	}
+	virtual ~dumpTxOutputsInfo() {
+		std::cerr <<
+			"outputs:\t" << this->outputs << '\n' <<
+			"pk_count:\t" << this->pk_count << '\n' <<
+			"hash_count:\t" << this->hash_count << '\n' <<
+			"pk_zip_count:\t" << this->pk_zip_count << '\n' <<
+			"new_hash_count:\t" << this->new_hash_count << '\n' <<
+			"unk_count:\t" << this->unk_count << '\n' <<
+			std::endl;
+	}
+	void operator() (const Block& block) {
+		std::array<uint8_t, 4096> buffer;
+		uint32_t height = 0xffffffff;
+		if (this->shouldSkip(block, nullptr, &height)) return;
+
+		auto transactions = block.transactions();
+		while (not transactions.empty()) {
+			const auto& transaction = transactions.front();
+			for (const auto& output : transaction.outputs) {
+				auto s = range(output.script);
+				auto res = range(buffer);
+				uint8_t *script = s.data();
+				size_t script_len = s.size();
+				this->outputs++;
+				if(script[0] == 0x41 && script[script_len-1] == OP_CHECKSIG && script_len == 67){
+					this->pk_count++;
+					if (this->pk_count == 10000){
+						auto hash = transaction.hash();
+						res.put(zstr_range(toHexBE(hash).c_str()));
+						serial::put<char>(res, '\n');
+					}
+					// res.put(zstr_range("PUB_KEY\n"));
+				}else if(script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == 0x14 && script[script_len-2] == OP_EQUALVERIFY && script[script_len-1] == OP_CHECKSIG && script_len == 25){
+					this->hash_count++;
+					// res.put(zstr_range("PUB_HASH160\n"));
+				}else if(script[0] == 0x21 && script[script_len-1] == OP_CHECKSIG && script_len == 35){
+					this->pk_zip_count++;
+					// res.put(zstr_range("ZIP_PUB_KEY\n"));
+				}else if(script[0] == OP_HASH160 && script[1] == 0x14 && script[script_len-1] == OP_EQUAL && script_len == 23){
+					this->new_hash_count++;
+					// res.put(zstr_range("NEW_HASH160\n"));
+				}else{
+					this->unk_count++;
+					auto hash = transaction.hash();
+					res.put(zstr_range(toHexBE(hash).c_str()));
+					serial::put<char>(res, '\n');
+					// res.put(zstr_range("UNKNOWN-TX\n"));
+				}
+				auto lineLength = buffer.size() - res.size();
+				if (lineLength > 0)
+					fwrite(buffer.begin(), lineLength, 1, stdout);
+			}
+			transactions.popFront();
+		}
+	}
+};
+
 auto perc (uint64_t a, uint64_t ab) {
 	return static_cast<double>(a) / static_cast<double>(ab);
 }

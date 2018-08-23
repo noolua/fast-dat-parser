@@ -149,7 +149,8 @@ auto ptr_range (R& r) {
 	return __ranger::Range<pointer>(r.data(), r.data() + r.size());
 }
 
-inline auto zstr_range (const char* z) {
+auto zstr_range (const char* z_) {
+	auto z = reinterpret_cast<const unsigned char*>(z_);
 	using pointer = decltype(z);
 
 	auto r = z;

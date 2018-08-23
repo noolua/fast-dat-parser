@@ -243,7 +243,6 @@ void putASM (R& output, const R& script) {
 
 	while (not save.empty()) {
 		const auto opcode = serial::read<uint8_t>(save);
-
 		// data
 		if ((opcode > OP_0) && (opcode <= OP_PUSHDATA4)) {
 			const auto dataLength = readPD(opcode, save);

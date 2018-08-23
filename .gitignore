@@ -3,3 +3,4 @@ parser
 *.dat
 *.d
 *.o
+*.log

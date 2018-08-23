@@ -96,16 +96,15 @@ struct dumpStatistics : public TransformBase<Block> {
 // ASM > stdout
 template <typename Block>
 struct dumpASM : public TransformBase<Block> {
+	// FIXED: segmentation fault
+	std::array<uint8_t, 1024*1024> buffer;
 	void operator() (const Block& block) {
 		if (this->shouldSkip(block)) return;
-
-		std::array<uint8_t, 1024*1024> buffer;
 
 		auto transactions = block.transactions();
 		while (not transactions.empty()) {
 			const auto& transaction = transactions.front();
-
-			for (const auto& output : transaction.inputs) {
+			for (const auto& output : transaction.outputs) {
 				auto tmp = range(buffer);
 				putASM(tmp, output.script);
 				serial::put<char>(tmp, '\n');

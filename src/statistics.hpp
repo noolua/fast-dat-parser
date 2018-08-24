@@ -29,33 +29,46 @@ struct dumpOutputValuesOverHeight : public TransformBase<Block> {
 	}
 };
 
-// HEIGHT | VALUE > stdout
+#define OP_PUSHDATA_N(x)			x
+
 template <typename Block>
 struct dumpTxOutputsInfo : public TransformBase<Block> {
 	std::atomic_ulong outputs;
-	std::atomic_ulong pk_count;
-	std::atomic_ulong hash_count;
-	std::atomic_ulong pk_zip_count;
-	std::atomic_ulong new_hash_count;
+	std::atomic_ulong p2pk_count;
+	std::atomic_ulong p2pkh_count;
+	std::atomic_ulong p2pkz_count;
+	std::atomic_ulong p2sh_count;
+	std::atomic_ulong p2pkh_multisig_count;
 	std::atomic_ulong unk_count;
 	dumpTxOutputsInfo() {
 		this->outputs = 0;
-		this->pk_count = 0;
-		this->hash_count = 0;
-		this->pk_zip_count = 0;
-		this->new_hash_count = 0;
+		this->p2pk_count = 0;
+		this->p2pkh_count = 0;
+		this->p2pkz_count = 0;
+		this->p2sh_count = 0;
+		this->p2pkh_multisig_count = 0;
 		this->unk_count = 0;
 	}
 	virtual ~dumpTxOutputsInfo() {
 		std::cerr <<
 			"outputs:\t" << this->outputs << '\n' <<
-			"pk_count:\t" << this->pk_count << '\n' <<
-			"hash_count:\t" << this->hash_count << '\n' <<
-			"pk_zip_count:\t" << this->pk_zip_count << '\n' <<
-			"new_hash_count:\t" << this->new_hash_count << '\n' <<
+			"p2pk_count:\t" << this->p2pk_count << '\n' <<
+			"p2pkz_count:\t" << this->p2pkz_count << '\n' <<
+			"p2pkh_count:\t" << this->p2pkh_count << '\n' <<
+			"p2sh_count:\t" << this->p2sh_count << '\n' <<
+			"p2pkh_multisig_count:\t" << this->p2pkh_multisig_count << '\n' <<
 			"unk_count:\t" << this->unk_count << '\n' <<
 			std::endl;
 	}
+	int is_p2pkh_multisig(const unsigned char *s, const size_t len){
+		int ret = 0;
+		if(OP_1 <= s[0] && s[0] <= OP_16 && s[len-1] == OP_CHECKMULTISIG){
+			// FIXED ME, NEED CHECK(m <= n)
+			ret = 1;
+		}
+		return ret;
+	}
+
 	void operator() (const Block& block) {
 		std::array<uint8_t, 4096> buffer;
 		uint32_t height = 0xffffffff;
@@ -70,23 +83,26 @@ struct dumpTxOutputsInfo : public TransformBase<Block> {
 				uint8_t *script = s.data();
 				size_t script_len = s.size();
 				this->outputs++;
-				if(script[0] == 0x41 && script[script_len-1] == OP_CHECKSIG && script_len == 67){
-					this->pk_count++;
-					if (this->pk_count == 10000){
+				if(script[0] == OP_PUSHDATA_N(65) && script[script_len-1] == OP_CHECKSIG && script_len == 67){
+					this->p2pk_count++;
+					if (this->p2pk_count == 1){
 						auto hash = transaction.hash();
 						res.put(zstr_range(toHexBE(hash).c_str()));
 						serial::put<char>(res, '\n');
 					}
-					// res.put(zstr_range("PUB_KEY\n"));
-				}else if(script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == 0x14 && script[script_len-2] == OP_EQUALVERIFY && script[script_len-1] == OP_CHECKSIG && script_len == 25){
-					this->hash_count++;
-					// res.put(zstr_range("PUB_HASH160\n"));
-				}else if(script[0] == 0x21 && script[script_len-1] == OP_CHECKSIG && script_len == 35){
-					this->pk_zip_count++;
-					// res.put(zstr_range("ZIP_PUB_KEY\n"));
-				}else if(script[0] == OP_HASH160 && script[1] == 0x14 && script[script_len-1] == OP_EQUAL && script_len == 23){
-					this->new_hash_count++;
-					// res.put(zstr_range("NEW_HASH160\n"));
+					// res.put(zstr_range("P2PK\n"));
+				}else if(script[0] == OP_PUSHDATA_N(33) && script[script_len-1] == OP_CHECKSIG && script_len == 35){
+					this->p2pkz_count++;
+					// res.put(zstr_range("P2PKZ\n"));
+				}else if(script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == OP_PUSHDATA_N(20) && script[script_len-2] == OP_EQUALVERIFY && script[script_len-1] == OP_CHECKSIG && script_len == 25){
+					this->p2pkh_count++;
+					// res.put(zstr_range("P2PKH\n"));
+				}else if(script[0] == OP_HASH160 && script[1] == OP_PUSHDATA_N(20) && script[script_len-1] == OP_EQUAL && script_len == 23){
+					this->p2sh_count++;
+					// res.put(zstr_range("P2SH\n"));
+				}else if(is_p2pkh_multisig(script, script_len)){
+					this->p2pkh_multisig_count++;
+					// res.put(zstr_range("P2PKH_MULTISIG\n"));
 				}else{
 					this->unk_count++;
 					auto hash = transaction.hash();

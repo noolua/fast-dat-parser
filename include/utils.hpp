@@ -118,11 +118,10 @@ std::string base58encode(R &r){
   return str;
 }
 
-template<typename R>
-address_t hash2address(R &hash, uint8_t version){
+address_t hash2address(uint160_t &hash, uint8_t version){
   address_t address;
   serial::place<uint8_t>(address, version);
-  serial::place<R>(range(address).drop(1), hash);
+  serial::place<uint160_t>(range(address).drop(1), hash);
   // auto r_addr = range(address).take(21);
   auto check_sum = hash256(range(address).take(21));
   range(address).drop(21).put(range(check_sum).take(4));

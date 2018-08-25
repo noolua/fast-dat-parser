@@ -39,8 +39,10 @@ struct dumpBlockValue : public TransformBase<Block> {
 	dumpBlockValue() { max_blocks = 0;}
 
 	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value){
-		std::array<uint8_t, 256> buffer;
+		std::array<uint8_t, 1024> buffer;
 		auto res = range(buffer);
+
+		// DUMP - ASCII
 		// res.put(zstr_range(toHexBE(tx_hash).c_str()));
 		// serial::put<char>(res, '\n');
 		// res.put(zstr_range(toHex(address).c_str()));
@@ -48,6 +50,8 @@ struct dumpBlockValue : public TransformBase<Block> {
 		// std::string str = base58encode(address);
 		// res.put(zstr_range(str.c_str()));
 		// serial::put<char>(res, '\n');
+
+		// DUMP - BINDATA
 		serial::put<uint64_t>(res, value);
 		res.put(range(tx_hash));
 		res.put(range(address));
@@ -70,7 +74,6 @@ struct dumpBlockValue : public TransformBase<Block> {
 				auto s = range(output.script);
 				uint8_t *spt = s.data();
 				size_t spt_len = s.size();
-				// dump p2pk
 				if(spt[0] == OP_PUSHDATA_N(65) && spt[spt_len-1] == OP_CHECKSIG && spt_len == 67){
 					auto pk = range(output.script);
 					pk.popFrontN(1);
@@ -87,13 +90,22 @@ struct dumpBlockValue : public TransformBase<Block> {
 					auto hash = range(output.script);
 					hash.popFrontN(3);
 					hash.popBackN(2);
-					auto address = hash2address(hash, 5);
+					uint160_t h160;
+					std::copy(hash.begin(), hash.end(), h160.begin());
+					auto address = hash2address(h160, 0);
 					this->dump_one_output(tx_hash, address, output.value);
+					// std::array<uint8_t, 256> buffer;
+					// auto res = range(buffer);
+					// res.put(zstr_range(toHex(hash).c_str()));
+					// serial::put<char>(res, '\n');
+					// fwrite(buffer.begin(), buffer.size() - res.size(), 1, stdout);
 				}else if(spt[0] == OP_HASH160 && spt[1] == OP_PUSHDATA_N(20) && spt[spt_len-1] == OP_EQUAL && spt_len == 23){
 					auto hash = range(output.script);
 					hash.popFrontN(2);
 					hash.popBackN(1);
-					auto address = hash2address(hash, 5);
+					uint160_t h160;
+					std::copy(hash.begin(), hash.end(), h160.begin());
+					auto address = hash2address(h160, 5);
 					this->dump_one_output(tx_hash, address, output.value);
 				}
 			}

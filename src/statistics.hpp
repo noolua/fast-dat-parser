@@ -38,21 +38,33 @@ struct dumpBlockValue : public TransformBase<Block> {
 	uint32_t max_blocks;
 	dumpBlockValue() { max_blocks = 0;}
 
+	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value){
+		std::array<uint8_t, 256> buffer;
+		auto res = range(buffer);
+		// res.put(zstr_range(toHexBE(tx_hash).c_str()));
+		// serial::put<char>(res, '\n');
+		// res.put(zstr_range(toHex(address).c_str()));
+		// serial::put<char>(res, '\n');
+		// std::string str = base58encode(address);
+		// res.put(zstr_range(str.c_str()));
+		// serial::put<char>(res, '\n');
+		serial::put<uint64_t>(res, value);
+		res.put(range(tx_hash));
+		res.put(range(address));
+		fwrite(buffer.begin(), buffer.size() - res.size(), 1, stdout);
+	}
+
 	void operator() (const Block& block) {
-		std::array<uint8_t, 4096> buffer;
+		// std::array<uint8_t, 4096> buffer;
 		uint32_t height = 0xffffffff;
 		uint64_t sum = 0;
-		if (this->max_blocks++ >= 5) return;
+		// if (this->max_blocks++ >= 1) return;
 		if (this->shouldSkip(block, nullptr, &height)) return;
 		auto transactions = block.transactions();
 
 		while (not transactions.empty()) {
 			const auto& transaction = transactions.front();
-			// dump tx_hash
-			auto res = range(buffer);
 			auto tx_hash = transaction.hash();
-			res.put(zstr_range(toHexBE(tx_hash).c_str()));
-			serial::put<char>(res, '\n');
 			for (const auto& output : transaction.outputs) {
 				sum += output.value;
 				auto s = range(output.script);
@@ -63,21 +75,31 @@ struct dumpBlockValue : public TransformBase<Block> {
 					auto pk = range(output.script);
 					pk.popFrontN(1);
 					pk.popBackN(1);
-
 					auto address = pubkey2address(pk);
-					res.put(zstr_range(toHex(address).c_str()));
-					serial::put<char>(res, '\n');
-					std::string str = base58encode(address);
-					res.put(zstr_range(str.c_str()));
-					serial::put<char>(res, '\n');
-
-					// serial::put<uint8_t>(r_vh, '\0');
-					fwrite(buffer.begin(), buffer.size() - res.size(), 1, stdout);
+					this->dump_one_output(tx_hash, address, output.value);
+				}else if(spt[0] == OP_PUSHDATA_N(33) && spt[spt_len-1] == OP_CHECKSIG && spt_len == 35){
+					auto pk = range(output.script);
+					pk.popFrontN(1);
+					pk.popBackN(1);
+					auto address = pubkey2address(pk);
+					this->dump_one_output(tx_hash, address, output.value);
+				}else if(spt[0] == OP_DUP && spt[1] == OP_HASH160 && spt[2] == OP_PUSHDATA_N(20) && spt[spt_len-2] == OP_EQUALVERIFY && spt[spt_len-1] == OP_CHECKSIG && spt_len == 25){
+					auto hash = range(output.script);
+					hash.popFrontN(3);
+					hash.popBackN(2);
+					auto address = hash2address(hash, 5);
+					this->dump_one_output(tx_hash, address, output.value);
+				}else if(spt[0] == OP_HASH160 && spt[1] == OP_PUSHDATA_N(20) && spt[spt_len-1] == OP_EQUAL && spt_len == 23){
+					auto hash = range(output.script);
+					hash.popFrontN(2);
+					hash.popBackN(1);
+					auto address = hash2address(hash, 5);
+					this->dump_one_output(tx_hash, address, output.value);
 				}
 			}
 			transactions.popFront();
 		}
-		std::cout <<"Block height: " << height << ", total_value: " << sum << std::endl;
+		// std::cout <<"Block height: " << height << ", total_value: " << sum << std::endl;
 	}
 };
 

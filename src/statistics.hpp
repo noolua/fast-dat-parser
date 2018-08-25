@@ -3,7 +3,9 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include "utils.hpp"
 #include "transforms.hpp"
+
 
 // HEIGHT | VALUE > stdout
 template <typename Block>
@@ -29,7 +31,56 @@ struct dumpOutputValuesOverHeight : public TransformBase<Block> {
 	}
 };
 
-#define OP_PUSHDATA_N(x)			x
+
+// HEIGHT | BLOCK_TOTAL_VALUES > stdout
+template <typename Block>
+struct dumpBlockValue : public TransformBase<Block> {
+	uint32_t max_blocks;
+	dumpBlockValue() { max_blocks = 0;}
+
+	void operator() (const Block& block) {
+		std::array<uint8_t, 4096> buffer;
+		uint32_t height = 0xffffffff;
+		uint64_t sum = 0;
+		if (this->max_blocks++ >= 5) return;
+		if (this->shouldSkip(block, nullptr, &height)) return;
+		auto transactions = block.transactions();
+
+		while (not transactions.empty()) {
+			const auto& transaction = transactions.front();
+			// dump tx_hash
+			auto res = range(buffer);
+			auto tx_hash = transaction.hash();
+			res.put(zstr_range(toHexBE(tx_hash).c_str()));
+			serial::put<char>(res, '\n');
+			for (const auto& output : transaction.outputs) {
+				sum += output.value;
+				auto s = range(output.script);
+				uint8_t *spt = s.data();
+				size_t spt_len = s.size();
+				// dump p2pk
+				if(spt[0] == OP_PUSHDATA_N(65) && spt[spt_len-1] == OP_CHECKSIG && spt_len == 67){
+					auto pk = range(output.script);
+					pk.popFrontN(1);
+					pk.popBackN(1);
+
+					auto address = pubkey2address(pk);
+					res.put(zstr_range(toHex(address).c_str()));
+					serial::put<char>(res, '\n');
+					std::string str = base58encode(address);
+					res.put(zstr_range(str.c_str()));
+					serial::put<char>(res, '\n');
+
+					// serial::put<uint8_t>(r_vh, '\0');
+					fwrite(buffer.begin(), buffer.size() - res.size(), 1, stdout);
+				}
+			}
+			transactions.popFront();
+		}
+		std::cout <<"Block height: " << height << ", total_value: " << sum << std::endl;
+	}
+};
+
 
 template <typename Block>
 struct dumpTxOutputsInfo : public TransformBase<Block> {

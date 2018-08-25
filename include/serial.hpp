@@ -10,7 +10,7 @@
 	#endif
 #else
 	#ifdef __APPLE__
-	#pragma message("only support x86/amd64 darwin system")
+	// #pragma message("only support x86/amd64 darwin system")
 	#endif
 #endif
 

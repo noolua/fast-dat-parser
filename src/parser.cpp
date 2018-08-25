@@ -47,6 +47,7 @@ int main (int argc, char** argv) {
 			else if (transformIndex == 3) delegate.reset(new dumpOutputValuesOverHeight<block_t>());
 			else if (transformIndex == 4) delegate.reset(new dumpUnspents<block_t>());
 			else if (transformIndex == 5) delegate.reset(new dumpASM<block_t>());
+			else if (transformIndex == 6) delegate.reset(new dumpBlockValue<block_t>());
 			else if (transformIndex == 9) delegate.reset(new dumpTxOutputsInfo<block_t>());
 
 			// indexd

@@ -2,6 +2,7 @@
 
 // from https://github.com/bitcoin/bitcoin/blob/5961b23898ee7c0af2626c46d5d70e80136578d3/src/script/script.h#L48
 // from https://github.com/bitcoin/bitcoin/blob/5961b23898ee7c0af2626c46d5d70e80136578d3/src/script/script.cpp
+#define OP_PUSHDATA_N(x)            x
 enum OP {
     // push value
     OP_0 = 0x00,

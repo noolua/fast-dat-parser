@@ -3,11 +3,13 @@
 #include <array>
 #include <iomanip>
 #include <openssl/sha.h>
+#include <openssl/ripemd.h>
 #include <sstream>
 #include "hexxer.hpp"
 #include "ranger.hpp"
 
 typedef std::array<uint8_t, 32> uint256_t;
+typedef std::array<uint8_t, 20> uint160_t;
 
 template <typename R>
 auto sha256 (const R& r) {
@@ -16,6 +18,16 @@ auto sha256 (const R& r) {
 	SHA256_Init(&context);
 	SHA256_Update(&context, r.begin(), r.size());
 	SHA256_Final(result.begin(), &context);
+	return result;
+}
+
+template <typename R>
+auto rmd160 (const R& r) {
+	uint160_t result;
+	RIPEMD160_CTX context;
+	RIPEMD160_Init(&context);
+	RIPEMD160_Update(&context, r.begin(), r.size());
+	RIPEMD160_Final(result.begin(), &context);
 	return result;
 }
 

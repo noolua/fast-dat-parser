@@ -38,26 +38,38 @@ struct dumpBlockValue : public TransformBase<Block> {
 	uint32_t max_blocks;
 	dumpBlockValue() { max_blocks = 0;}
 
-	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value){
+	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value, int dump_ascii = 0, int skip = 0){
 		std::array<uint8_t, 1024> buffer;
+		if(skip) return;
 		auto res = range(buffer);
-
 		// DUMP - ASCII
-		// res.put(zstr_range(toHexBE(tx_hash).c_str()));
-		// serial::put<char>(res, '\n');
-		// res.put(zstr_range(toHex(address).c_str()));
-		// serial::put<char>(res, '\n');
-		// std::string str = base58encode(address);
-		// res.put(zstr_range(str.c_str()));
-		// serial::put<char>(res, '\n');
-
+		if (dump_ascii){
+			res.put(zstr_range(toHexBE(tx_hash).c_str()));
+			serial::put<char>(res, '\n');
+			// res.put(zstr_range(toHex(address).c_str()));
+			// serial::put<char>(res, '\n');
+			std::string str = base58encode(address);
+			res.put(zstr_range(str.c_str()));
+			serial::put<char>(res, '\n');
+		}else{
 		// DUMP - BINDATA
-		serial::put<uint64_t>(res, value);
-		res.put(range(tx_hash));
-		res.put(range(address));
+			serial::put<uint64_t>(res, value);
+			res.put(range(tx_hash));
+			res.put(range(address));
+		}
 		fwrite(buffer.begin(), buffer.size() - res.size(), 1, stdout);
 	}
-
+	// FIXED ME, NEED CHECK(m <= n)
+	int is_p2pkh_multisig(const uint8_t *s, const size_t len){
+		int ret = 0;
+		if(OP_1 <= s[0] && s[0] <= OP_16 && OP_1 <= s[len-2] && s[len-2] <= OP_16 && s[len-1] == OP_CHECKMULTISIG){
+			int M = s[0], N = s[len-2];
+			if (M <= N){
+				ret = 1;
+			}
+		}
+		return ret;
+	}
 	void operator() (const Block& block) {
 		// std::array<uint8_t, 4096> buffer;
 		uint32_t height = 0xffffffff;
@@ -107,6 +119,25 @@ struct dumpBlockValue : public TransformBase<Block> {
 					std::copy(hash.begin(), hash.end(), h160.begin());
 					auto address = hash2address(h160, 5);
 					this->dump_one_output(tx_hash, address, output.value);
+				}else if(is_p2pkh_multisig(spt, spt_len)){
+					auto save = range(output.script);
+					auto opcM = serial::read<uint8_t>(save);
+					while (not save.empty()) {
+						const auto opcode = serial::read<uint8_t>(save);
+						if ((opcode > OP_0) && (opcode <= OP_PUSHDATA4)) {
+							const auto dataLength = readPD(opcode, save);
+							assert(dataLength > save.size());
+							const auto pk = save.take(dataLength);
+							save.popFrontN(dataLength);
+							auto address = pubkey2address(pk);
+							this->dump_one_output(tx_hash, address, output.value);
+						}else if(OP_1 <= opcode && opcode <= OP_16){
+							const auto opcEND = serial::read<uint8_t>(save);
+							assert(opcEND == OP_CHECKMULTISIG);
+							// std::cout <<"parse successful ..."<< std::endl;
+							break;
+						}
+					}
 				}
 			}
 			transactions.popFront();

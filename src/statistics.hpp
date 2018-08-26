@@ -133,6 +133,7 @@ struct dumpBlockValue : public TransformBase<Block> {
 							this->dump_one_output(tx_hash, address, output.value);
 						}else if(OP_1 <= opcode && opcode <= OP_16){
 							const auto opcEND = serial::read<uint8_t>(save);
+							assert(opcM <= opcode);
 							assert(opcEND == OP_CHECKMULTISIG);
 							// std::cout <<"parse successful ..."<< std::endl;
 							break;

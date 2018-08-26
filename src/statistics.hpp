@@ -38,7 +38,11 @@ struct dumpBlockValue : public TransformBase<Block> {
 	uint32_t max_blocks;
 	dumpBlockValue() { max_blocks = 0;}
 
-	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value, int dump_ascii = 0, int skip = 0){
+	void err_tx_report(uint256_t &tx_hash){
+		std::cerr << "Invalid transaction:" <<toHexBE(tx_hash).c_str()<< std::endl;
+	}
+
+	void dump_one_output(uint256_t &tx_hash, address_t &address, uint64_t value, int skip = 0, int dump_ascii = 0){
 		std::array<uint8_t, 1024> buffer;
 		if(skip) return;
 		auto res = range(buffer);
@@ -126,15 +130,19 @@ struct dumpBlockValue : public TransformBase<Block> {
 						const auto opcode = serial::read<uint8_t>(save);
 						if ((opcode > OP_0) && (opcode <= OP_PUSHDATA4)) {
 							const auto dataLength = readPD(opcode, save);
-							assert(dataLength > save.size());
+							if(dataLength > save.size()){
+								err_tx_report(tx_hash);
+								break;
+							}
 							const auto pk = save.take(dataLength);
 							save.popFrontN(dataLength);
 							auto address = pubkey2address(pk);
 							this->dump_one_output(tx_hash, address, output.value);
 						}else if(OP_1 <= opcode && opcode <= OP_16){
 							const auto opcEND = serial::read<uint8_t>(save);
-							assert(opcM <= opcode);
-							assert(opcEND == OP_CHECKMULTISIG);
+							if(opcM > opcode || opcEND != OP_CHECKMULTISIG){
+								err_tx_report(tx_hash);
+							}
 							// std::cout <<"parse successful ..."<< std::endl;
 							break;
 						}
